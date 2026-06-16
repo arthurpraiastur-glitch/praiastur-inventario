@@ -1,7 +1,8 @@
 const express = require("express");
 const apartamentoController = require("../controllers/apartamentoController");
-const authMiddleware = require("../middlewares/authMiddleware");
 const criarUpload = require("../middlewares/uploadMiddleware");
+const authMiddleware = require("../middlewares/authMiddleware");
+const adminMiddleware = require("../middlewares/adminMiddleware");
 
 const uploadApartamento = criarUpload("apartamentos");
 
@@ -18,6 +19,13 @@ router.put("/:id", authMiddleware, apartamentoController.atualizar);
 router.patch("/:id/inativar", authMiddleware, apartamentoController.inativar);
 
 router.patch("/:id/reativar", authMiddleware, apartamentoController.reativar);
+
+router.delete(
+  "/:id",
+  authMiddleware,
+  adminMiddleware,
+  apartamentoController.excluirApartamentoDefinitivo
+);
 
 router.patch(
   "/:id/imagem",

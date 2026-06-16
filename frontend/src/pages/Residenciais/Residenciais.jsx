@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import api from "../../api/api";
 import "./Residenciais.css";
 
+
+
 function Residenciais() {
   const [residenciais, setResidenciais] = useState([]);
   const [carregando, setCarregando] = useState(true);
@@ -34,6 +36,10 @@ function Residenciais() {
       setCarregando(false);
     }
   }
+
+  const usuarioSalvo = localStorage.getItem("usuario");
+  const usuario = usuarioSalvo ? JSON.parse(usuarioSalvo) : null;
+  const ehAdministrador = usuario?.perfil === "ADMINISTRADOR";
 
   useEffect(() => {
     carregarResidenciais();
@@ -139,6 +145,24 @@ function Residenciais() {
     }
   }
 
+  async function excluirResidencialDefinitivo(id) {
+    const confirmar = window.confirm(
+      "Tem certeza que deseja excluir este residencial definitivamente?\n\nTodos os apartamentos e itens operacionais vinculados a ele também serão excluídos.\n\nEssa ação não poderá ser desfeita."
+    );
+
+    if (!confirmar) return;
+
+    try {
+      await api.delete(`/residenciais/${id}`);
+
+      alert("Residencial excluído definitivamente com sucesso.");
+
+      carregarResidenciais();
+    } catch (error) {
+      alert(error.response?.data?.mensagem || "Erro ao excluir residencial.");
+    }
+  }
+
   async function reativarResidencial(id) {
     try {
       await api.patch(`/residenciais/${id}/reativar`);
@@ -169,13 +193,13 @@ function Residenciais() {
     }
   }
 
- function montarUrlImagem(caminho) {
-  if (!caminho) return null;
+  function montarUrlImagem(caminho) {
+    if (!caminho) return null;
 
-  const uploadsUrl = import.meta.env.VITE_UPLOADS_URL || "http://localhost:3000";
+    const uploadsUrl = import.meta.env.VITE_UPLOADS_URL || "http://localhost:3000";
 
-  return `${uploadsUrl}${caminho}`;
-}
+    return `${uploadsUrl}${caminho}`;
+  }
 
   const residenciaisFiltrados = residenciais.filter((residencial) => {
     const textoBusca = busca.toLowerCase();
@@ -273,6 +297,15 @@ function Residenciais() {
                   <button onClick={() => abrirModalEditar(residencial)}>
                     Editar
                   </button>
+
+                  {ehAdministrador && (
+                    <button
+                      className="delete-button"
+                      onClick={() => excluirResidencialDefinitivo(residencial.id)}
+                    >
+                      Excluir definitivo
+                    </button>
+                  )}
 
                   {residencial.status ? (
                     <button

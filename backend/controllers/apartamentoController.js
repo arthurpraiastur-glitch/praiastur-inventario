@@ -135,6 +135,20 @@ async function uploadImagem(req, res) {
   }
 }
 
+async function excluirApartamentoDefinitivo(req, res) {
+  try {
+    const { id } = req.params;
+
+    const resultado = await apartamentoService.excluirApartamentoDefinitivo(id);
+
+    return res.json(resultado);
+  } catch (error) {
+    return res.status(400).json({
+      mensagem: error.message
+    });
+  }
+}
+
 module.exports = {
   listar,
   buscarPorId,
@@ -142,5 +156,6 @@ module.exports = {
   atualizar,
   inativar,
   reativar, 
-  uploadImagem
+  uploadImagem,
+  excluirApartamentoDefinitivo
 };

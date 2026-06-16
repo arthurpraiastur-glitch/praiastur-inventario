@@ -2,6 +2,7 @@ const express = require("express");
 const itemOperacionalController = require("../controllers/itemOperacionalController");
 const authMiddleware = require("../middlewares/authMiddleware");
 const criarUpload = require("../middlewares/uploadMiddleware");
+const adminMiddleware = require("../middlewares/adminMiddleware");
 
 const uploadItem = criarUpload("itens");
 
@@ -22,6 +23,13 @@ router.patch(
   authMiddleware,
   uploadItem.single("imagem"),
   itemOperacionalController.uploadImagem
+);
+
+router.delete(
+  "/:id",
+  authMiddleware,
+  adminMiddleware,
+  itemOperacionalController.excluir
 );
 
 module.exports = router;

@@ -19,7 +19,7 @@ async function syncDatabase() {
     console.log("Conexão com o MySQL realizada com sucesso.");
 
     await sequelize.sync({
-      force: false,
+      force: true,
       alter: false
     });
 

@@ -12,6 +12,10 @@ async function listar(req, res) {
       filtros.apartamento_id = req.query.apartamento_id;
     }
 
+    if (req.query.categoria !== undefined) {
+      filtros.categoria = req.query.categoria;
+    }
+
     const itens = await itemOperacionalService.listarItens(filtros);
 
     return res.status(200).json(itens);
@@ -92,6 +96,7 @@ async function alterarStatus(req, res) {
     });
   }
 }
+
 async function uploadImagem(req, res) {
   try {
     const { id } = req.params;
@@ -122,11 +127,29 @@ async function uploadImagem(req, res) {
   }
 }
 
+async function excluir(req, res) {
+  try {
+    const { id } = req.params;
+
+    const resultado = await itemOperacionalService.excluirItemDefinitivo(
+      id,
+      req.usuario
+    );
+
+    return res.status(200).json(resultado);
+  } catch (error) {
+    return res.status(400).json({
+      mensagem: error.message
+    });
+  }
+}
+
 module.exports = {
   listar,
   buscarPorId,
   criar,
   atualizar,
   alterarStatus,
-  uploadImagem
+  uploadImagem,
+  excluir
 };

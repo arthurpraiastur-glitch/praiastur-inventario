@@ -506,3 +506,14 @@ input[type="file"] {
     grid-template-columns: 1fr;
   }
 }
+
+.actions .delete-button {
+  background: #b91c1c;
+  border: 1px solid #b91c1c;
+  color: #ffffff;
+}
+
+.actions .delete-button:hover {
+  background: #991b1b;
+  border-color: #991b1b;
+}

@@ -98,11 +98,26 @@ async function reativar(req, res) {
   }
 }
 
+async function excluirProdutoDefinitivo(req, res) {
+  try {
+    const { id } = req.params;
+
+    const resultado = await produtoService.excluirProdutoDefinitivo(id);
+
+    return res.json(resultado);
+  } catch (error) {
+    return res.status(400).json({
+      mensagem: error.message
+    });
+  }
+}
+
 module.exports = {
   listar,
   buscarPorId,
   criar,
   atualizar,
   inativar,
-  reativar
+  reativar,
+  excluirProdutoDefinitivo
 };

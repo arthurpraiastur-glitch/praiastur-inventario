@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import api from "../../api/api";
 import "./Produtos.css";
 
+
 function Produtos() {
   const [produtos, setProdutos] = useState([]);
   const [carregando, setCarregando] = useState(true);
@@ -18,6 +19,10 @@ function Produtos() {
     estoque_minimo: "",
     observacao: ""
   });
+
+  const usuarioSalvo = localStorage.getItem("usuario");
+  const usuario = usuarioSalvo ? JSON.parse(usuarioSalvo) : null;
+  const ehAdministrador = usuario?.perfil === "ADMINISTRADOR";
 
   async function carregarProdutos() {
     try {
@@ -122,6 +127,24 @@ function Produtos() {
       carregarProdutos();
     } catch (error) {
       alert(error.response?.data?.mensagem || "Erro ao salvar produto.");
+    }
+  }
+
+  async function excluirProdutoDefinitivo(id) {
+    const confirmar = window.confirm(
+      "Tem certeza que deseja excluir este produto definitivamente?\n\nEssa ação não poderá ser desfeita.\n\nAtenção: produtos com entradas ou saídas registradas não poderão ser excluídos."
+    );
+
+    if (!confirmar) return;
+
+    try {
+      await api.delete(`/produtos/${id}`);
+
+      alert("Produto excluído definitivamente com sucesso.");
+
+      carregarProdutos();
+    } catch (error) {
+      alert(error.response?.data?.mensagem || "Erro ao excluir produto.");
     }
   }
 
@@ -231,6 +254,16 @@ function Produtos() {
                         <button onClick={() => abrirModalEditar(produto)}>
                           Editar
                         </button>
+
+                        {ehAdministrador && (
+                          <button
+                            className="delete-button"
+                            onClick={() => excluirProdutoDefinitivo(produto.id)}
+                          >
+                            Excluir definitivo
+                          </button>
+                        )}
+
 
                         {produto.status ? (
                           <button

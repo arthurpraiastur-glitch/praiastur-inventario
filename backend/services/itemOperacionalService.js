@@ -5,6 +5,24 @@ const {
   HistoricoMovimentacao
 } = require("../models");
 
+const CATEGORIAS_PERMITIDAS = [
+  "MOVEIS_E_ESTRUTURA",
+  "ELETRONICOS_E_ELETRODOMESTICOS",
+  "COZINHA_E_UTENSILIOS",
+  "QUARTOS_E_ENXOVAL",
+  "BANHEIROS",
+  "AREA_DE_SERVICO_E_VARANDA",
+  "DECORACAO",
+  "MANUTENCAO_E_SEGURANCA",
+  "OUTROS"
+];
+
+function validarCategoria(categoria) {
+  if (categoria && !CATEGORIAS_PERMITIDAS.includes(categoria)) {
+    throw new Error("Categoria do item inválida.");
+  }
+}
+
 async function listarItens(filtros = {}) {
   const where = {};
 
@@ -14,6 +32,10 @@ async function listarItens(filtros = {}) {
 
   if (filtros.apartamento_id !== undefined) {
     where.apartamento_id = filtros.apartamento_id;
+  }
+
+  if (filtros.categoria !== undefined) {
+    where.categoria = filtros.categoria;
   }
 
   const itens = await ItemOperacional.findAll({
@@ -64,7 +86,7 @@ async function buscarItemPorId(id) {
 }
 
 async function criarItem(dados, usuarioLogado) {
-  const { apartamento_id, nome, quantidade, status_item, observacao } = dados;
+  const { apartamento_id, nome, categoria, quantidade, status_item, observacao } = dados;
 
   if (!apartamento_id) {
     throw new Error("O apartamento ou espaço é obrigatório.");
@@ -84,6 +106,8 @@ async function criarItem(dados, usuarioLogado) {
     throw new Error("Status do item inválido.");
   }
 
+  validarCategoria(categoria);
+
   const apartamento = await Apartamento.findByPk(apartamento_id);
 
   if (!apartamento) {
@@ -97,6 +121,7 @@ async function criarItem(dados, usuarioLogado) {
   const item = await ItemOperacional.create({
     apartamento_id,
     nome: nome.trim(),
+    categoria: categoria || null,
     quantidade,
     status_item: status_item || "BOM",
     observacao: observacao || null,
@@ -118,7 +143,7 @@ async function criarItem(dados, usuarioLogado) {
 async function atualizarItem(id, dados, usuarioLogado) {
   const item = await buscarItemPorId(id);
 
-  const { apartamento_id, nome, quantidade, status_item, observacao } = dados;
+  const { apartamento_id, nome, categoria, quantidade, status_item, observacao } = dados;
 
   if (apartamento_id !== undefined) {
     const apartamento = await Apartamento.findByPk(apartamento_id);
@@ -146,9 +171,14 @@ async function atualizarItem(id, dados, usuarioLogado) {
     throw new Error("Status do item inválido.");
   }
 
+  if (categoria !== undefined) {
+    validarCategoria(categoria);
+  }
+
   await item.update({
     apartamento_id: apartamento_id !== undefined ? apartamento_id : item.apartamento_id,
     nome: nome !== undefined ? nome.trim() : item.nome,
+    categoria: categoria !== undefined ? categoria : item.categoria,
     quantidade: quantidade !== undefined ? quantidade : item.quantidade,
     status_item: status_item !== undefined ? status_item : item.status_item,
     observacao: observacao !== undefined ? observacao : item.observacao,
@@ -219,11 +249,31 @@ async function atualizarImagemItem(id, caminhoImagem, usuarioLogado) {
   return item;
 }
 
+async function excluirItemDefinitivo(id, usuarioLogado) {
+  const item = await buscarItemPorId(id);
+
+  await HistoricoMovimentacao.create({
+    usuario_id: usuarioLogado?.id || null,
+    modulo: "ITENS_OPERACIONAIS",
+    acao: "EXCLUIR_DEFINITIVO",
+    tabela_referenciada: "itens_operacionais",
+    registro_id: item.id,
+    descricao: `Item operacional excluído definitivamente: ${item.nome}`
+  });
+
+  await item.destroy();
+
+  return {
+    mensagem: "Item operacional excluído definitivamente com sucesso."
+  };
+}
+
 module.exports = {
   listarItens,
   buscarItemPorId,
   criarItem,
   atualizarItem,
   alterarStatusItem,
-  atualizarImagemItem
+  atualizarImagemItem,
+  excluirItemDefinitivo
 };

@@ -1,6 +1,22 @@
 const { DataTypes } = require("sequelize");
 const { sequelize } = require("../db/connection");
 
+const CATEGORIAS_PERMITIDAS = [
+  "MOVEIS_E_ESTRUTURA",
+  "ELETRONICOS_E_ELETRODOMESTICOS",
+  "COZINHA_E_UTENSILIOS",
+  "QUARTOS_E_ENXOVAL",
+  "BANHEIROS",
+  "AREA_DE_SERVICO_E_VARANDA",
+  "OUTROS"
+];
+
+function validarCategoria(categoria) {
+  if (categoria && !CATEGORIAS_PERMITIDAS.includes(categoria)) {
+    throw new Error("Categoria do item inválida.");
+  }
+}
+
 const ItemOperacional = sequelize.define("itens_operacionais", {
   id: {
     type: DataTypes.INTEGER.UNSIGNED,
@@ -16,6 +32,11 @@ const ItemOperacional = sequelize.define("itens_operacionais", {
   nome: {
     type: DataTypes.STRING(150),
     allowNull: false
+  },
+
+  categoria: {
+    type: DataTypes.STRING(80),
+    allowNull: true
   },
 
   quantidade: {

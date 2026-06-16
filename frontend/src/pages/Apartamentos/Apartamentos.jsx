@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import api from "../../api/api";
 import "./Apartamentos.css";
 
+
 function Apartamentos() {
   const [apartamentos, setApartamentos] = useState([]);
   const [residenciais, setResidenciais] = useState([]);
@@ -20,6 +21,10 @@ function Apartamentos() {
     tipo: "",
     observacao: ""
   });
+
+  const usuarioSalvo = localStorage.getItem("usuario");
+  const usuario = usuarioSalvo ? JSON.parse(usuarioSalvo) : null;
+  const ehAdministrador = usuario?.perfil === "ADMINISTRADOR";
 
   async function carregarDados() {
     try {
@@ -135,6 +140,23 @@ function Apartamentos() {
     }
   }
 
+  async function excluirApartamentoDefinitivo(id) {
+    const confirmar = window.confirm(
+      "Tem certeza que deseja excluir este apartamento definitivamente?\n\nTodos os itens operacionais vinculados a ele também serão excluídos.\n\nEssa ação não poderá ser desfeita."
+    );
+
+    if (!confirmar) return;
+
+    try {
+      await api.delete(`/apartamentos/${id}`);
+
+      alert("Apartamento excluído definitivamente com sucesso.");
+
+      carregarApartamentos();
+    } catch (error) {
+      alert(error.response?.data?.mensagem || "Erro ao excluir apartamento.");
+    }
+  }
   async function reativarApartamento(id) {
     try {
       await api.patch(`/apartamentos/${id}/reativar`);
@@ -166,12 +188,12 @@ function Apartamentos() {
   }
 
   function montarUrlImagem(caminho) {
-  if (!caminho) return null;
+    if (!caminho) return null;
 
-  const uploadsUrl = import.meta.env.VITE_UPLOADS_URL || "http://localhost:3000";
+    const uploadsUrl = import.meta.env.VITE_UPLOADS_URL || "http://localhost:3000";
 
-  return `${uploadsUrl}${caminho}`;
-}
+    return `${uploadsUrl}${caminho}`;
+  }
 
   const apartamentosFiltrados = apartamentos.filter((apartamento) => {
     const textoBusca = busca.toLowerCase();
@@ -309,6 +331,15 @@ function Apartamentos() {
                       <button onClick={() => abrirModalEditar(apartamento)}>
                         Editar
                       </button>
+
+                      {ehAdministrador && (
+                        <button
+                          className="delete-button"
+                          onClick={() => excluirApartamentoDefinitivo(apartamento.id)}
+                        >
+                          Excluir definitivo
+                        </button>
+                      )}
 
                       {apartamento.status ? (
                         <button

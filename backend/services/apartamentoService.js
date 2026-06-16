@@ -1,8 +1,6 @@
-const {
-  Apartamento,
-  Residencial,
-  HistoricoMovimentacao
-} = require("../models");
+const { Apartamento, ItemOperacional, Residencial, HistoricoMovimentacao } = require("../models");
+const db = require("../db/connection");
+const sequelize = db.sequelize || db;
 
 async function listarApartamentos(filtros = {}) {
   const where = {};
@@ -225,6 +223,34 @@ async function atualizarImagemApartamento(id, caminhoImagem, usuarioLogado) {
   return apartamento;
 }
 
+async function excluirApartamentoDefinitivo(id) {
+  const transaction = await sequelize.transaction();
+
+  try {
+    const apartamento = await Apartamento.findByPk(id, { transaction });
+
+    if (!apartamento) {
+      throw new Error("Apartamento não encontrado.");
+    }
+
+    await ItemOperacional.destroy({
+      where: { apartamento_id: id },
+      transaction
+    });
+
+    await apartamento.destroy({ transaction });
+
+    await transaction.commit();
+
+    return {
+      mensagem: "Apartamento e seus itens operacionais foram excluídos definitivamente."
+    };
+  } catch (error) {
+    await transaction.rollback();
+    throw error;
+  }
+}
+
 module.exports = {
   listarApartamentos,
   buscarApartamentoPorId,
@@ -232,5 +258,6 @@ module.exports = {
   atualizarApartamento,
   inativarApartamento,
   reativarApartamento,
-  atualizarApartamento
+  atualizarApartamento,
+  excluirApartamentoDefinitivo
 };

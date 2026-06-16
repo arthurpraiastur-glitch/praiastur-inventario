@@ -1,4 +1,9 @@
-const { ProdutoAdministrativo, HistoricoMovimentacao } = require("../models");
+const {
+  ProdutoAdministrativo,
+  EntradaAdministrativa,
+  SaidaItem,
+  HistoricoMovimentacao
+} = require("../models");
 
 async function listarProdutos(filtros = {}) {
   const where = {};
@@ -130,12 +135,39 @@ async function reativarProduto(id, usuarioLogado) {
 
   return produto;
 }
+async function excluirProdutoDefinitivo(id) {
+  const produto = await ProdutoAdministrativo.findByPk(id);
 
+  if (!produto) {
+    throw new Error("Produto não encontrado.");
+  }
+
+  const entradasVinculadas = await EntradaAdministrativa.count({
+    where: { produto_Id: id }
+  });
+
+  const saidasVinculadas = await SaidaItem.count({
+    where: { produto_Id: id }
+  });
+
+  if (entradasVinculadas > 0 || saidasVinculadas > 0) {
+    throw new Error(
+      "Este produto possui movimentações vinculadas. Para preservar o histórico, ele não pode ser excluído definitivamente. Use a opção de inativar."
+    );
+  }
+
+  await produto.destroy();
+
+  return {
+    mensagem: "Produto excluído definitivamente com sucesso."
+  };
+}
 module.exports = {
   listarProdutos,
   buscarProdutoPorId,
   criarProduto,
   atualizarProduto,
   inativarProduto,
-  reativarProduto
+  reativarProduto,
+  excluirProdutoDefinitivo
 };

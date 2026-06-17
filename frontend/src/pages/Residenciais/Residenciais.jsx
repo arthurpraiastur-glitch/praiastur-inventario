@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
 import api from "../../api/api";
 import "./Residenciais.css";
-
-
+import ImageCropModal from "../../components/ImageCropModal/ImageCropModal";
 
 function Residenciais() {
   const [residenciais, setResidenciais] = useState([]);
@@ -14,6 +13,11 @@ function Residenciais() {
   const [modalAberto, setModalAberto] = useState(false);
   const [residencialEditando, setResidencialEditando] = useState(null);
 
+  const [residencialDetalhado, setResidencialDetalhado] = useState(null);
+  const [apartamentosDoResidencial, setApartamentosDoResidencial] = useState([]);
+  const [itensDoResidencial, setItensDoResidencial] = useState([]);
+  const [carregandoDetalhes, setCarregandoDetalhes] = useState(false);
+
   const [form, setForm] = useState({
     nome: "",
     cidade: "",
@@ -21,6 +25,15 @@ function Residenciais() {
     endereco: "",
     observacao: ""
   });
+
+  const usuarioSalvo = localStorage.getItem("usuario");
+  const usuario = usuarioSalvo ? JSON.parse(usuarioSalvo) : null;
+  const ehAdministrador = usuario?.perfil === "ADMINISTRADOR";
+
+
+  const [cropAberto, setCropAberto] = useState(false);
+  const [imagemParaCortar, setImagemParaCortar] = useState(null);
+  const [residencialImagemId, setResidencialImagemId] = useState(null);
 
   async function carregarResidenciais() {
     try {
@@ -36,10 +49,6 @@ function Residenciais() {
       setCarregando(false);
     }
   }
-
-  const usuarioSalvo = localStorage.getItem("usuario");
-  const usuario = usuarioSalvo ? JSON.parse(usuarioSalvo) : null;
-  const ehAdministrador = usuario?.perfil === "ADMINISTRADOR";
 
   useEffect(() => {
     carregarResidenciais();
@@ -76,6 +85,47 @@ function Residenciais() {
   function fecharModal() {
     setModalAberto(false);
     setResidencialEditando(null);
+  }
+
+  async function abrirDetalhesResidencial(residencial) {
+    setResidencialDetalhado(residencial);
+    setApartamentosDoResidencial([]);
+    setItensDoResidencial([]);
+    setCarregandoDetalhes(true);
+
+    try {
+      const respostaApartamentos = await api.get(
+        `/apartamentos?residencial_id=${residencial.id}`
+      );
+
+      const apartamentos = respostaApartamentos.data;
+      setApartamentosDoResidencial(apartamentos);
+
+      if (apartamentos.length === 0) {
+        setItensDoResidencial([]);
+        return;
+      }
+
+      const respostasItens = await Promise.all(
+        apartamentos.map((apartamento) =>
+          api.get(`/itens-operacionais?apartamento_id=${apartamento.id}`)
+        )
+      );
+
+      const todosItens = respostasItens.flatMap((resposta) => resposta.data);
+
+      setItensDoResidencial(todosItens);
+    } catch (error) {
+      alert(error.response?.data?.mensagem || "Erro ao carregar detalhes do residencial.");
+    } finally {
+      setCarregandoDetalhes(false);
+    }
+  }
+
+  function fecharDetalhesResidencial() {
+    setResidencialDetalhado(null);
+    setApartamentosDoResidencial([]);
+    setItensDoResidencial([]);
   }
 
   function atualizarCampo(event) {
@@ -157,6 +207,10 @@ function Residenciais() {
 
       alert("Residencial excluído definitivamente com sucesso.");
 
+      if (residencialDetalhado?.id === id) {
+        fecharDetalhesResidencial();
+      }
+
       carregarResidenciais();
     } catch (error) {
       alert(error.response?.data?.mensagem || "Erro ao excluir residencial.");
@@ -172,25 +226,48 @@ function Residenciais() {
     }
   }
 
-  async function enviarImagem(event, residencialId) {
+  function enviarImagem(event, residencialId) {
     const arquivo = event.target.files[0];
 
     if (!arquivo) return;
 
+    const urlTemporaria = URL.createObjectURL(arquivo);
+
+    setImagemParaCortar(urlTemporaria);
+    setResidencialImagemId(residencialId);
+    setCropAberto(true);
+
+    event.target.value = "";
+  }
+
+  async function confirmarImagemCortada(arquivoCortado) {
+    if (!arquivoCortado || !residencialImagemId) return;
+
     const formData = new FormData();
-    formData.append("imagem", arquivo);
+    formData.append("imagem", arquivoCortado);
 
     try {
-      await api.patch(`/residenciais/${residencialId}/imagem`, formData, {
+      await api.patch(`/residenciais/${residencialImagemId}/imagem`, formData, {
         headers: {
           "Content-Type": "multipart/form-data"
         }
       });
 
+      fecharCropImagem();
       carregarResidenciais();
     } catch (error) {
       alert(error.response?.data?.mensagem || "Erro ao enviar imagem.");
     }
+  }
+
+  function fecharCropImagem() {
+    if (imagemParaCortar) {
+      URL.revokeObjectURL(imagemParaCortar);
+    }
+
+    setCropAberto(false);
+    setImagemParaCortar(null);
+    setResidencialImagemId(null);
   }
 
   function montarUrlImagem(caminho) {
@@ -199,6 +276,33 @@ function Residenciais() {
     const uploadsUrl = import.meta.env.VITE_UPLOADS_URL || "http://localhost:3000";
 
     return `${uploadsUrl}${caminho}`;
+  }
+
+  function nomeStatus(status) {
+    const nomes = {
+      BOM: "Bom",
+      ATENCAO: "Atenção",
+      PROBLEMA: "Problema",
+      EM_FALTA: "Em falta"
+    };
+
+    return nomes[status] || status;
+  }
+
+  function contarItensPorStatus(status) {
+    return itensDoResidencial.filter((item) => item.status_item === status).length;
+  }
+
+  function contarApartamentosAtivos() {
+    return apartamentosDoResidencial.filter((apartamento) => apartamento.status).length;
+  }
+
+  function abrirApartamentos() {
+    window.location.href = "/apartamentos";
+  }
+
+  function abrirItensOperacionais() {
+    window.location.href = "/itens-operacionais";
   }
 
   const residenciaisFiltrados = residenciais.filter((residencial) => {
@@ -263,7 +367,13 @@ function Residenciais() {
 
               <div className="residencial-body">
                 <div className="residencial-title-row">
-                  <h3>{residencial.nome}</h3>
+                  <button
+                    type="button"
+                    className="residencial-name-button"
+                    onClick={() => abrirDetalhesResidencial(residencial)}
+                  >
+                    {residencial.nome}
+                  </button>
 
                   {residencial.status ? (
                     <span className="badge success">Ativo</span>
@@ -294,18 +404,13 @@ function Residenciais() {
                 </div>
 
                 <div className="actions residencial-actions">
+                  <button onClick={() => abrirDetalhesResidencial(residencial)}>
+                    Ver
+                  </button>
+
                   <button onClick={() => abrirModalEditar(residencial)}>
                     Editar
                   </button>
-
-                  {ehAdministrador && (
-                    <button
-                      className="delete-button"
-                      onClick={() => excluirResidencialDefinitivo(residencial.id)}
-                    >
-                      Excluir definitivo
-                    </button>
-                  )}
 
                   {residencial.status ? (
                     <button
@@ -320,6 +425,15 @@ function Residenciais() {
                       onClick={() => reativarResidencial(residencial.id)}
                     >
                       Reativar
+                    </button>
+                  )}
+
+                  {ehAdministrador && (
+                    <button
+                      className="delete-button"
+                      onClick={() => excluirResidencialDefinitivo(residencial.id)}
+                    >
+                      Excluir definitivo
                     </button>
                   )}
                 </div>
@@ -403,6 +517,181 @@ function Residenciais() {
             </form>
           </div>
         </div>
+      )}
+
+      {residencialDetalhado && (
+        <div className="modal-overlay">
+          <div className="modal-card residencial-detail-modal">
+            <div className="modal-header">
+              <h2>{residencialDetalhado.nome}</h2>
+              <button onClick={fecharDetalhesResidencial}>X</button>
+            </div>
+
+            <div className="residencial-detail-content">
+              <div className="residencial-detail-image">
+                {residencialDetalhado.imagem ? (
+                  <img
+                    src={montarUrlImagem(residencialDetalhado.imagem)}
+                    alt={residencialDetalhado.nome}
+                  />
+                ) : (
+                  <span>Sem imagem</span>
+                )}
+              </div>
+
+              <div className="residencial-detail-info">
+                <p>
+                  <strong>Cidade/Estado:</strong>{" "}
+                  {residencialDetalhado.cidade}/{residencialDetalhado.estado}
+                </p>
+
+                <p>
+                  <strong>Endereço:</strong>{" "}
+                  {residencialDetalhado.endereco || "-"}
+                </p>
+
+                <p>
+                  <strong>Status:</strong>{" "}
+                  {residencialDetalhado.status ? "Ativo" : "Inativo"}
+                </p>
+
+                <p>
+                  <strong>Observação:</strong>{" "}
+                  {residencialDetalhado.observacao || "-"}
+                </p>
+              </div>
+            </div>
+
+            <div className="residencial-summary-grid">
+              <div className="residencial-summary-card">
+                <span>Apartamentos</span>
+                <strong>{apartamentosDoResidencial.length}</strong>
+              </div>
+
+              <div className="residencial-summary-card">
+                <span>Apartamentos ativos</span>
+                <strong>{contarApartamentosAtivos()}</strong>
+              </div>
+
+              <div className="residencial-summary-card">
+                <span>Total de itens</span>
+                <strong>{itensDoResidencial.length}</strong>
+              </div>
+
+              <div className="residencial-summary-card">
+                <span>Bom</span>
+                <strong>{contarItensPorStatus("BOM")}</strong>
+              </div>
+
+              <div className="residencial-summary-card">
+                <span>Atenção</span>
+                <strong>{contarItensPorStatus("ATENCAO")}</strong>
+              </div>
+
+              <div className="residencial-summary-card">
+                <span>Problema</span>
+                <strong>{contarItensPorStatus("PROBLEMA")}</strong>
+              </div>
+
+              <div className="residencial-summary-card">
+                <span>Em falta</span>
+                <strong>{contarItensPorStatus("EM_FALTA")}</strong>
+              </div>
+            </div>
+
+            <div className="residencial-items-preview">
+              <h3>Apartamentos vinculados</h3>
+
+              {carregandoDetalhes ? (
+                <p>Carregando informações...</p>
+              ) : apartamentosDoResidencial.length === 0 ? (
+                <p>Nenhum apartamento/espaço cadastrado neste residencial.</p>
+              ) : (
+                <div className="residencial-items-list">
+                  {apartamentosDoResidencial.slice(0, 8).map((apartamento) => (
+                    <div key={apartamento.id} className="residencial-item-line">
+                      <strong>{apartamento.nome_numero}</strong>
+                      <span>
+                        {apartamento.tipo || "Sem tipo"} —{" "}
+                        {apartamento.status ? "Ativo" : "Inativo"}
+                      </span>
+                    </div>
+                  ))}
+
+                  {apartamentosDoResidencial.length > 8 && (
+                    <small>
+                      + {apartamentosDoResidencial.length - 8} apartamentos não exibidos aqui.
+                    </small>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="residencial-items-preview">
+              <h3>Itens com atenção, problema ou em falta</h3>
+
+              {carregandoDetalhes ? (
+                <p>Carregando itens...</p>
+              ) : itensDoResidencial.filter((item) => item.status_item !== "BOM").length === 0 ? (
+                <p>Nenhum item crítico encontrado neste residencial.</p>
+              ) : (
+                <div className="residencial-items-list">
+                  {itensDoResidencial
+                    .filter((item) => item.status_item !== "BOM")
+                    .slice(0, 8)
+                    .map((item) => (
+                      <div key={item.id} className="residencial-item-line">
+                        <strong>{item.nome}</strong>
+                        <span>
+                          {item.apartamento?.nome_numero || "-"} —{" "}
+                          {nomeStatus(item.status_item)}
+                        </span>
+                      </div>
+                    ))}
+                </div>
+              )}
+            </div>
+
+            <div className="modal-actions">
+              <button type="button" onClick={abrirApartamentos}>
+                Ver apartamentos
+              </button>
+
+              <button type="button" onClick={abrirItensOperacionais}>
+                Ver itens operacionais
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  fecharDetalhesResidencial();
+                  abrirModalEditar(residencialDetalhado);
+                }}
+              >
+                Editar
+              </button>
+
+              {ehAdministrador && (
+                <button
+                  type="button"
+                  className="delete-button"
+                  onClick={() => excluirResidencialDefinitivo(residencialDetalhado.id)}
+                >
+                  Excluir definitivamente
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {cropAberto && imagemParaCortar && (
+        <ImageCropModal
+          imagem={imagemParaCortar}
+          aspect={4 / 3}
+          onCancel={fecharCropImagem}
+          onConfirm={confirmarImagemCortada}
+        />
       )}
     </div>
   );

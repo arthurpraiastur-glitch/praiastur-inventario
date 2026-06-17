@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import api from "../../api/api";
 import "./Apartamentos.css";
 
-
 function Apartamentos() {
   const [apartamentos, setApartamentos] = useState([]);
   const [residenciais, setResidenciais] = useState([]);
@@ -13,6 +12,10 @@ function Apartamentos() {
 
   const [modalAberto, setModalAberto] = useState(false);
   const [apartamentoEditando, setApartamentoEditando] = useState(null);
+  const [apartamentoDetalhado, setApartamentoDetalhado] = useState(null);
+  const [itensDoApartamento, setItensDoApartamento] = useState([]);
+  const [carregandoDetalhes, setCarregandoDetalhes] = useState(false);
+
   const [filtroResidencial, setFiltroResidencial] = useState("");
 
   const [form, setForm] = useState({
@@ -70,7 +73,7 @@ function Apartamentos() {
     setApartamentoEditando(apartamento);
 
     setForm({
-      residencial_id: apartamento.residencial_id || "",
+      residencial_id: apartamento.residencial_id || apartamento.residencial?.id || "",
       nome_numero: apartamento.nome_numero || "",
       tipo: apartamento.tipo || "",
       observacao: apartamento.observacao || ""
@@ -82,6 +85,29 @@ function Apartamentos() {
   function fecharModal() {
     setModalAberto(false);
     setApartamentoEditando(null);
+  }
+
+  async function abrirDetalhesApartamento(apartamento) {
+    setApartamentoDetalhado(apartamento);
+    setItensDoApartamento([]);
+    setCarregandoDetalhes(true);
+
+    try {
+      const resposta = await api.get(
+        `/itens-operacionais?apartamento_id=${apartamento.id}`
+      );
+
+      setItensDoApartamento(resposta.data);
+    } catch (error) {
+      alert(error.response?.data?.mensagem || "Erro ao carregar itens do apartamento.");
+    } finally {
+      setCarregandoDetalhes(false);
+    }
+  }
+
+  function fecharDetalhesApartamento() {
+    setApartamentoDetalhado(null);
+    setItensDoApartamento([]);
   }
 
   function atualizarCampo(event) {
@@ -152,11 +178,16 @@ function Apartamentos() {
 
       alert("Apartamento excluído definitivamente com sucesso.");
 
-      carregarApartamentos();
+      if (apartamentoDetalhado?.id === id) {
+        fecharDetalhesApartamento();
+      }
+
+      carregarDados();
     } catch (error) {
       alert(error.response?.data?.mensagem || "Erro ao excluir apartamento.");
     }
   }
+
   async function reativarApartamento(id) {
     try {
       await api.patch(`/apartamentos/${id}/reativar`);
@@ -193,6 +224,25 @@ function Apartamentos() {
     const uploadsUrl = import.meta.env.VITE_UPLOADS_URL || "http://localhost:3000";
 
     return `${uploadsUrl}${caminho}`;
+  }
+
+  function nomeStatus(status) {
+    const nomes = {
+      BOM: "Bom",
+      ATENCAO: "Atenção",
+      PROBLEMA: "Problema",
+      EM_FALTA: "Em falta"
+    };
+
+    return nomes[status] || status;
+  }
+
+  function contarItensPorStatus(status) {
+    return itensDoApartamento.filter((item) => item.status_item === status).length;
+  }
+
+  function abrirItensOperacionaisFiltrado(apartamentoId) {
+    window.location.href = `/itens-operacionais?apartamento_id=${apartamentoId}`;
   }
 
   const apartamentosFiltrados = apartamentos.filter((apartamento) => {
@@ -296,8 +346,15 @@ function Apartamentos() {
                       />
                     </label>
                   </td>
+
                   <td>
-                    <strong>{apartamento.nome_numero}</strong>
+                    <button
+                      type="button"
+                      className="apartamento-name-button"
+                      onClick={() => abrirDetalhesApartamento(apartamento)}
+                    >
+                      {apartamento.nome_numero}
+                    </button>
                   </td>
 
                   <td>{apartamento.tipo || "-"}</td>
@@ -328,18 +385,13 @@ function Apartamentos() {
 
                   <td>
                     <div className="actions">
+                      <button onClick={() => abrirDetalhesApartamento(apartamento)}>
+                        Ver
+                      </button>
+
                       <button onClick={() => abrirModalEditar(apartamento)}>
                         Editar
                       </button>
-
-                      {ehAdministrador && (
-                        <button
-                          className="delete-button"
-                          onClick={() => excluirApartamentoDefinitivo(apartamento.id)}
-                        >
-                          Excluir definitivo
-                        </button>
-                      )}
 
                       {apartamento.status ? (
                         <button
@@ -354,6 +406,15 @@ function Apartamentos() {
                           onClick={() => reativarApartamento(apartamento.id)}
                         >
                           Reativar
+                        </button>
+                      )}
+
+                      {ehAdministrador && (
+                        <button
+                          className="delete-button"
+                          onClick={() => excluirApartamentoDefinitivo(apartamento.id)}
+                        >
+                          Excluir definitivo
                         </button>
                       )}
                     </div>
@@ -436,6 +497,141 @@ function Apartamentos() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {apartamentoDetalhado && (
+        <div className="modal-overlay">
+          <div className="modal-card apartamento-detail-modal">
+            <div className="modal-header">
+              <h2>{apartamentoDetalhado.nome_numero}</h2>
+              <button onClick={fecharDetalhesApartamento}>X</button>
+            </div>
+
+            <div className="apartamento-detail-content">
+              <div className="apartamento-detail-image">
+                {apartamentoDetalhado.imagem ? (
+                  <img
+                    src={montarUrlImagem(apartamentoDetalhado.imagem)}
+                    alt={apartamentoDetalhado.nome_numero}
+                  />
+                ) : (
+                  <span>Sem imagem</span>
+                )}
+              </div>
+
+              <div className="apartamento-detail-info">
+                <p>
+                  <strong>Tipo:</strong> {apartamentoDetalhado.tipo || "-"}
+                </p>
+
+                <p>
+                  <strong>Residencial:</strong>{" "}
+                  {apartamentoDetalhado.residencial?.nome || "-"}
+                </p>
+
+                <p>
+                  <strong>Cidade/Estado:</strong>{" "}
+                  {apartamentoDetalhado.residencial
+                    ? `${apartamentoDetalhado.residencial.cidade}/${apartamentoDetalhado.residencial.estado}`
+                    : "-"}
+                </p>
+
+                <p>
+                  <strong>Status:</strong>{" "}
+                  {apartamentoDetalhado.status ? "Ativo" : "Inativo"}
+                </p>
+
+                <p>
+                  <strong>Observação:</strong>{" "}
+                  {apartamentoDetalhado.observacao || "-"}
+                </p>
+              </div>
+            </div>
+
+            <div className="apartamento-summary-grid">
+              <div className="apartamento-summary-card">
+                <span>Total de itens</span>
+                <strong>{itensDoApartamento.length}</strong>
+              </div>
+
+              <div className="apartamento-summary-card">
+                <span>Bom</span>
+                <strong>{contarItensPorStatus("BOM")}</strong>
+              </div>
+
+              <div className="apartamento-summary-card">
+                <span>Atenção</span>
+                <strong>{contarItensPorStatus("ATENCAO")}</strong>
+              </div>
+
+              <div className="apartamento-summary-card">
+                <span>Problema</span>
+                <strong>{contarItensPorStatus("PROBLEMA")}</strong>
+              </div>
+
+              <div className="apartamento-summary-card">
+                <span>Em falta</span>
+                <strong>{contarItensPorStatus("EM_FALTA")}</strong>
+              </div>
+            </div>
+
+            <div className="apartamento-items-preview">
+              <h3>Itens vinculados</h3>
+
+              {carregandoDetalhes ? (
+                <p>Carregando itens...</p>
+              ) : itensDoApartamento.length === 0 ? (
+                <p>Nenhum item cadastrado neste apartamento/espaço.</p>
+              ) : (
+                <div className="apartamento-items-list">
+                  {itensDoApartamento.slice(0, 6).map((item) => (
+                    <div key={item.id} className="apartamento-item-line">
+                      <strong>{item.nome}</strong>
+                      <span>
+                        {item.quantidade} un. — {nomeStatus(item.status_item)}
+                      </span>
+                    </div>
+                  ))}
+
+                  {itensDoApartamento.length > 6 && (
+                    <small>
+                      + {itensDoApartamento.length - 6} itens não exibidos aqui.
+                    </small>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="modal-actions">
+              <button
+                type="button"
+                onClick={() => abrirItensOperacionaisFiltrado(apartamentoDetalhado.id)}
+              >
+                Ver itens operacionais
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  fecharDetalhesApartamento();
+                  abrirModalEditar(apartamentoDetalhado);
+                }}
+              >
+                Editar
+              </button>
+
+              {ehAdministrador && (
+                <button
+                  type="button"
+                  className="delete-button"
+                  onClick={() => excluirApartamentoDefinitivo(apartamentoDetalhado.id)}
+                >
+                  Excluir definitivamente
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}

@@ -266,25 +266,45 @@ function ItensOperacionais() {
   }
 
   async function enviarImagem(event, itemId) {
-    const arquivo = event.target.files[0];
+  const arquivo = event.target.files[0];
 
-    if (!arquivo) return;
+  if (!arquivo) return;
 
-    const formData = new FormData();
-    formData.append("imagem", arquivo);
+  const formData = new FormData();
+  formData.append("imagem", arquivo);
 
-    try {
-      await api.patch(`/itens-operacionais/${itemId}/imagem`, formData, {
-        headers: {
-          "Content-Type": "multipart/form-data"
-        }
-      });
+  try {
+    const resposta = await api.patch(`/itens-operacionais/${itemId}/imagem`, formData, {
+      headers: {
+        "Content-Type": "multipart/form-data"
+      }
+    });
 
-      carregarDados();
-    } catch (error) {
-      alert(error.response?.data?.mensagem || "Erro ao enviar imagem.");
+    const itemAtualizado = resposta.data;
+
+    setItens((itensAtuais) =>
+      itensAtuais.map((item) =>
+        item.id === itemId
+          ? {
+              ...item,
+              imagem: itemAtualizado.imagem || itemAtualizado.item?.imagem || item.imagem
+            }
+          : item
+      )
+    );
+
+    if (itemDetalhado?.id === itemId) {
+      setItemDetalhado((itemAtual) => ({
+        ...itemAtual,
+        imagem: itemAtualizado.imagem || itemAtualizado.item?.imagem || itemAtual.imagem
+      }));
     }
+
+    event.target.value = "";
+  } catch (error) {
+    alert(error.response?.data?.mensagem || "Erro ao enviar imagem.");
   }
+}
 
   function montarUrlImagem(caminho) {
     if (!caminho) return null;

@@ -1,4 +1,10 @@
-const { Apartamento, ItemOperacional, Residencial, HistoricoMovimentacao } = require("../models");
+const {
+  Apartamento,
+  ItemOperacional,
+  Residencial,
+  HistoricoMovimentacao
+} = require("../models");
+
 const db = require("../db/connection");
 const sequelize = db.sequelize || db;
 
@@ -204,11 +210,13 @@ async function reativarApartamento(id, usuarioLogado) {
 
   return apartamento;
 }
+
 async function atualizarImagemApartamento(id, caminhoImagem, usuarioLogado) {
   const apartamento = await buscarApartamentoPorId(id);
 
   await apartamento.update({
-    imagem: caminhoImagem
+    imagem: caminhoImagem,
+    updated_by: usuarioLogado?.id || null
   });
 
   await HistoricoMovimentacao.create({
@@ -258,6 +266,6 @@ module.exports = {
   atualizarApartamento,
   inativarApartamento,
   reativarApartamento,
-  atualizarApartamento,
+  atualizarImagemApartamento,
   excluirApartamentoDefinitivo
 };

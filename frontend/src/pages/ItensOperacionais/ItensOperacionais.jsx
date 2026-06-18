@@ -100,18 +100,18 @@ function ItensOperacionais() {
 
   const apartamentosDoFiltro = filtroResidencial
     ? apartamentos.filter(
-        (apartamento) =>
-          String(pegarResidencialIdDoApartamento(apartamento)) ===
-          String(filtroResidencial)
-      )
+      (apartamento) =>
+        String(pegarResidencialIdDoApartamento(apartamento)) ===
+        String(filtroResidencial)
+    )
     : apartamentos;
 
   const apartamentosDoFormulario = form.residencial_id
     ? apartamentos.filter(
-        (apartamento) =>
-          String(pegarResidencialIdDoApartamento(apartamento)) ===
-          String(form.residencial_id)
-      )
+      (apartamento) =>
+        String(pegarResidencialIdDoApartamento(apartamento)) ===
+        String(form.residencial_id)
+    )
     : [];
 
   function abrirModalNovo() {
@@ -266,45 +266,45 @@ function ItensOperacionais() {
   }
 
   async function enviarImagem(event, itemId) {
-  const arquivo = event.target.files[0];
+    const arquivo = event.target.files[0];
 
-  if (!arquivo) return;
+    if (!arquivo) return;
 
-  const formData = new FormData();
-  formData.append("imagem", arquivo);
+    const formData = new FormData();
+    formData.append("imagem", arquivo);
 
-  try {
-    const resposta = await api.patch(`/itens-operacionais/${itemId}/imagem`, formData, {
-      headers: {
-        "Content-Type": "multipart/form-data"
-      }
-    });
+    try {
+      const resposta = await api.patch(`/itens-operacionais/${itemId}/imagem`, formData, {
+        headers: {
+          "Content-Type": "multipart/form-data"
+        }
+      });
 
-    const itemAtualizado = resposta.data;
+      const itemAtualizado = resposta.data;
 
-    setItens((itensAtuais) =>
-      itensAtuais.map((item) =>
-        item.id === itemId
-          ? {
+      setItens((itensAtuais) =>
+        itensAtuais.map((item) =>
+          item.id === itemId
+            ? {
               ...item,
               imagem: itemAtualizado.imagem || itemAtualizado.item?.imagem || item.imagem
             }
-          : item
-      )
-    );
+            : item
+        )
+      );
 
-    if (itemDetalhado?.id === itemId) {
-      setItemDetalhado((itemAtual) => ({
-        ...itemAtual,
-        imagem: itemAtualizado.imagem || itemAtualizado.item?.imagem || itemAtual.imagem
-      }));
+      if (itemDetalhado?.id === itemId) {
+        setItemDetalhado((itemAtual) => ({
+          ...itemAtual,
+          imagem: itemAtualizado.imagem || itemAtualizado.item?.imagem || itemAtual.imagem
+        }));
+      }
+
+      event.target.value = "";
+    } catch (error) {
+      alert(error.response?.data?.mensagem || "Erro ao enviar imagem.");
     }
-
-    event.target.value = "";
-  } catch (error) {
-    alert(error.response?.data?.mensagem || "Erro ao enviar imagem.");
   }
-}
 
   function montarUrlImagem(caminho) {
     if (!caminho) return null;
@@ -482,6 +482,8 @@ function ItensOperacionais() {
                         <img
                           src={montarUrlImagem(item.imagem)}
                           alt={item.nome}
+                          loading="lazy"
+                          decoding="async"
                         />
                       ) : (
                         <span>Sem imagem</span>
